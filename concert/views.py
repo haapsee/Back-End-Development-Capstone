@@ -14,7 +14,28 @@ import requests as req
 # Create your views here.
 
 def signup(request):
-    pass
+    if request.method == "POST":
+        # username and password from data
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        # check if username already exists
+        try:
+            user = User.objects.filter(username=username).first()
+            if user:
+                return render(request, "signup.html", {"form": SignUpForm, "error": "Username already exists"})
+            # create user
+            user = User.objects.create(
+                username=username,
+                password=make_password(password),
+            )
+            user.save()
+            # login user
+            login(request, user)
+            # redirect to index
+            return HttpResponseRedirect(reverse("index"))
+        except User.DoesNotExist:
+            return render(request, "signup.html", {"form": SignUpForm, "error": "Error in creating user"})
+    return render(request, "signup.html", {"form": SignUpForm})
 
 
 def index(request):
@@ -22,24 +43,64 @@ def index(request):
 
 
 def songs(request):
-    # songs = {"songs":[]}
-    # return render(request, "songs.html", {"songs": [insert list here]})
-    pass
+    songs = {"songs":[{"id":1,"title":"duis faucibus accumsan odio curabitur convallis","lyrics":"Morbi non lectus. Aliquam sit amet diam in magna bibendum imperdiet. Nullam orci pede, venenatis non, sodales sed, tincidunt eu, felis."}]}
+    return render(request, "songs.html", {"songs":songs["songs"]})
 
 
 def photos(request):
-    # photos = []
-    # return render(request, "photos.html", {"photos": photos})
-    pass
+    photos = [{
+        "id": 1,
+        "pic_url": "http://dummyimage.com/136x100.png/5fa2dd/ffffff",
+        "event_country": "United States",
+        "event_state": "District of Columbia",
+        "event_city": "Washington",
+        "event_date": "11/16/2022"
+    }]
+    return render(request, "photos.html", {"photos": photos})
 
 def login_view(request):
-    pass
+    if request.method == "POST":
+        # username and password from data
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        # check if username and password are correct
+        user = User.objects.filter(username=username).first()
+        if user:
+            if user.check_password(password):
+                # login user
+                login(request, user)
+                # redirect to index
+                return HttpResponseRedirect(reverse("index"))
+            else:
+                return render(request, "login.html", {"form": LoginForm, "error": "Invalid password"})
+        else:
+            return render(request, "login.html", {"form": LoginForm, "error": "Invalid username"})
+    return render(request, "login.html", {"form": LoginForm})
 
 def logout_view(request):
-    pass
+    if request.user.is_authenticated:
+        logout(request)
+        return HttpResponseRedirect(reverse("index"))
+    else:
+        return HttpResponseRedirect(reverse("index"))
 
 def concerts(request):
-    pass
+    if request.user.is_authenticated:
+        lst_of_concert = []
+        concert_objects = Concert.objects.all()
+        for item in concert_objects:
+            try:
+                status = item.attendee.filter(
+                    user=request.user).first().attending
+            except:
+                status = "-"
+            lst_of_concert.append({
+                "concert": item,
+                "status": status
+            })
+        return render(request, "concerts.html", {"concerts": lst_of_concert})
+    else:
+        return HttpResponseRedirect(reverse("login"))
 
 
 def concert_detail(request, id):
@@ -73,3 +134,4 @@ def concert_attendee(request):
         return HttpResponseRedirect(reverse("concerts"))
     else:
         return HttpResponseRedirect(reverse("index"))
+
